@@ -15,11 +15,13 @@ use std::fs;
 use std::process;
 use std::process::Command;
 
-struct Flags {
+pub struct Flags {
     print_reserved: bool,
     print_summary: bool,
     omit_headers: bool,
-    allow_char_str : bool
+    allow_char_str : bool,
+    allow_void_str : bool,
+    allow_basic_str : bool
 }
 
 fn print_usage(opts: &getopts::Options) -> ! {
@@ -38,6 +40,8 @@ fn main() {
     opts.optflag("s", "summary", "print summary");
     opts.optflag("o", "omit-headers", "print multiple files' symbols with no separators");
     opts.optflag("c", "allow-char-str", "consider char* types to be serializable");
+    opts.optflag("v", "allow-void-str", "consider void* types to be serializable");
+    opts.optflag("p", "allow-basic-str", "consider pointers to basic types to be serializable");
 
     let matches = match opts.parse(env::args().skip(1)) {
         Ok(m) => m,
@@ -54,7 +58,9 @@ fn main() {
         print_reserved: matches.opt_present("C"),
         print_summary: matches.opt_present("s"),
         omit_headers: matches.opt_present("o"),
-        allow_char_str: matches.opt_present("c")
+        allow_char_str: matches.opt_present("c"),
+        allow_void_str: matches.opt_present("v"),
+        allow_basic_str: matches.opt_present("p")
     };
 
     let mut counts = (0, 0);
@@ -82,7 +88,7 @@ fn main() {
         let dwarf_symbols: BTreeMap<String, Function> = dwarfdump::Symbols::from(file).functions.iter().map(|(k, v)| {
             (k.clone(), Function {
                 signature: format!("{}", v),
-                serializable: serializable::check(v, flags.allow_char_str)
+                serializable: serializable::check(v, &flags)
             })
         }).collect();
 
@@ -150,7 +156,7 @@ fn main() {
     }
 
     if flags.print_summary {
-        println!("serializable\tnot\n{}\t{}", counts.0, counts.1);
+        println!("total\tnot\tserializable\n{}\t{}\t{}", counts.0 + counts.1, counts.1, counts.0);
     }
 }
 
